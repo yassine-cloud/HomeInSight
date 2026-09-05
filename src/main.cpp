@@ -66,7 +66,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     .unit { font-size: 16px; color: #95a5a6; margin-left: 5px; }
     .fa-bolt { color: #f1c40f; } .fa-exchange-alt { color: #3498db; } .fa-plug { color: #e74c3c; }
     .fa-chart-line { color: #2ecc71; } .fa-wave-square { color: #9b59b6; } .fa-percent { color: #e67e22; }
-    .fa-history { color: #16a085; } .fa-calculator { color: #d35400; } .fa-map-marker-alt { color: #e74c3c; }
+    .fa-history { color: #16a085; } .fa-calculator { color: #d35400; } .fa-map-marker-alt { color: #e74c3c; } .fa-clock { color: #8e44ad; }
     h1 { text-align: center; margin: 30px 0; color: #2c3e50; }
   </style>
   <script>
@@ -85,6 +85,7 @@ const char index_html[] PROGMEM = R"rawliteral(
           document.getElementById('last_hour_label').innerText = data.last_hour_label;
           document.getElementById('predicted_hour').innerHTML = data.predicted_hour + '<span class="unit">kWh</span>';
           document.getElementById('location').innerText = data.location;
+          document.getElementById('time').innerText = data.time;
         }
       };
       xhttp.open("GET", "/data", true);
@@ -103,6 +104,14 @@ const char index_html[] PROGMEM = R"rawliteral(
         <div class="label">LOCATION</div>
         <div class="value" id="location">%LOCATION%</div>
         <div class="sublabel">Auto-detected via Secure IP-API</div>
+      </div>
+    </div>
+    <div class="card">
+      <i class="fas fa-clock icon"></i>
+      <div class="content">
+        <div class="label">SYSTEM TIME</div>
+        <div class="value" id="time">%TIME%</div>
+        <div class="sublabel">Synchronized via NTP</div>
       </div>
     </div>
     <div class="card">
@@ -208,6 +217,16 @@ void syncLocationAndTIme() {
   }
 }
 
+String getFormattedTime() {
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    return "Syncing...";
+  }
+  char timeStr[10];
+  snprintf(timeStr, sizeof(timeStr), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+  return String(timeStr);
+}
+
 String processor(const String &var) {
   if (var == "VOLTAGE") return isnan(voltage) ? "Error" : String(voltage, 1);
   else if (var == "CURRENT") return isnan(current) ? "Error" : String(current, 3);
@@ -219,6 +238,7 @@ String processor(const String &var) {
   else if (var == "LAST_HOUR_LABEL") return lastHourTimeLabel;
   else if (var == "PREDICTED_HOUR") return String(predictedHourEnergy, 3);
   else if (var == "LOCATION") return detectedLocation;
+  else if (var == "TIME") return getFormattedTime();
   return String();
 }
 
@@ -277,6 +297,7 @@ void setup() {
     json += "\"last_hour_label\":\"" + lastHourTimeLabel + "\",";
     json += "\"predicted_hour\":\"" + String(predictedHourEnergy, 3) + "\",";
     json += "\"location\":\"" + detectedLocation + "\"";
+    json += ",\"time\":\"" + getFormattedTime() + "\"";
     json += "}";
     request->send(200, "application/json", json);
   });
