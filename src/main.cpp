@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 #include <time.h>
 #include "secrets.h"
+#include "config.h"
 
 // WiFi credentials
 const char *ssid = WIFI_SSID;
@@ -221,11 +222,31 @@ String processor(const String &var) {
   return String();
 }
 
+// --- STATIC IP CONFIGURATION ---
+// Global network objects
+IPAddress local_IP;
+IPAddress gateway;
+IPAddress subnet;
+IPAddress primaryDNS;
+IPAddress secondaryDNS;
+
 void setup() {
   Serial.begin(115200);
 
   // Initialize HardwareSerial2
   Serial2.begin(9600, SERIAL_8N1, PZEM_RX_PIN, PZEM_TX_PIN);
+
+    // --- CONVERT STRINGS TO IPADDRESS OBJECTS ---
+  local_IP.fromString(STR_LOCAL_IP);
+  gateway.fromString(STR_GATEWAY);
+  subnet.fromString(STR_SUBNET);
+  primaryDNS.fromString(STR_PRIMARY_DNS);
+  secondaryDNS.fromString(STR_SECONDARY_DNS);
+
+  // Configure static IP prior to connecting
+  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
+    Serial.println("[WIFI] Failed to configure Static IP! Falling back to DHCP.");
+  }
 
   WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi");
