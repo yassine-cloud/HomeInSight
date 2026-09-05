@@ -209,11 +209,11 @@ void syncLocationAndTIme() {
 
 String processor(const String &var) {
   if (var == "VOLTAGE") return isnan(voltage) ? "Error" : String(voltage, 1);
-  else if (var == "CURRENT") return isnan(current) ? "Error" : String(current, 2);
+  else if (var == "CURRENT") return isnan(current) ? "Error" : String(current, 3);
   else if (var == "POWER") return isnan(power) ? "Error" : String(power, 1);
   else if (var == "ENERGY") return isnan(energy) ? "Error" : String(energy, 3);
   else if (var == "FREQUENCY") return isnan(frequency) ? "Error" : String(frequency, 1);
-  else if (var == "PF") return isnan(pf) ? "Error" : String(pf, 4);
+  else if (var == "PF") return isnan(pf) ? "Error" : String(pf, 2);
   else if (var == "LAST_HOUR") return String(lastHourEnergy, 3);
   else if (var == "LAST_HOUR_LABEL") return lastHourTimeLabel;
   else if (var == "PREDICTED_HOUR") return String(predictedHourEnergy, 3);
@@ -241,7 +241,7 @@ void setup() {
   syncLocationAndTIme();
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send_P(200, "text/html", index_html, processor);
+    request->send(200, "text/html", index_html, processor);
   });
 
   server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -251,7 +251,7 @@ void setup() {
     json += "\"power\":\"" + String(isnan(power) ? "Error" : String(power, 1)) + "\",";
     json += "\"energy\":\"" + String(isnan(energy) ? "Error" : String(energy, 3)) + "\",";
     json += "\"frequency\":\"" + String(isnan(frequency) ? "Error" : String(frequency, 1)) + "\",";
-    json += "\"pf\":\"" + String(isnan(pf) ? "Error" : String(pf, 4)) + "\",";
+    json += "\"pf\":\"" + String(isnan(pf) ? "Error" : String(pf, 2)) + "\",";
     json += "\"last_hour\":\"" + String(lastHourEnergy, 3) + "\",";
     json += "\"last_hour_label\":\"" + lastHourTimeLabel + "\",";
     json += "\"predicted_hour\":\"" + String(predictedHourEnergy, 3) + "\",";
