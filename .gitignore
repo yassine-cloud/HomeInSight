@@ -4,3 +4,9 @@
 .vscode/launch.json
 .vscode/ipch
 include/secrets.h
+.firebaserc
+.firebase
+web/.env
+**node_modules**
+web/dist
+*.log

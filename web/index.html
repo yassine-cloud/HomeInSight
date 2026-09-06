@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Firebase Power Dashboard</title>
+
+    <!-- FontAwesome Icons & Chart.js -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+      :root {
+        --bg-color: #f4f6f9;
+        --card-bg: #ffffff;
+        --text-main: #2c3e50;
+        --text-muted: #7f8c8d;
+        --border-radius: 12px;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: var(--bg-color);
+        color: var(--text-main);
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 25px;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+        color: var(--text-main);
+      }
+
+      .dashboard-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+      }
+
+      /* Chart Container */
+      .chart-card {
+        background: var(--card-bg);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+
+      .chart-card h2 {
+        margin-top: 0;
+        font-size: 18px;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .chart-wrapper {
+        position: relative;
+        height: 300px;
+        width: 100%;
+      }
+
+      /* Card Grid */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: var(--card-bg);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        display: flex;
+        align-items: center;
+        text-align: left;
+      }
+
+      .icon {
+        font-size: 36px;
+        margin-right: 20px;
+        min-width: 45px;
+        text-align: center;
+      }
+
+      .content {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .label {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+
+      .sublabel {
+        font-size: 11px;
+        color: #bdc3c7;
+        margin-top: 3px;
+      }
+
+      .value {
+        font-size: 22px;
+        font-weight: bold;
+        color: var(--text-main);
+        display: flex;
+        align-items: baseline;
+      }
+
+      .unit {
+        font-size: 14px;
+        color: #95a5a6;
+        margin-left: 5px;
+        font-weight: normal;
+      }
+
+      /* Custom Icon Colors */
+      .fa-bolt {
+        color: #f1c40f;
+      }
+      .fa-exchange-alt {
+        color: #3498db;
+      }
+      .fa-plug {
+        color: #e74c3c;
+      }
+      .fa-chart-line {
+        color: #2ecc71;
+      }
+      .fa-wave-square {
+        color: #9b59b6;
+      }
+      .fa-percent {
+        color: #e67e22;
+      }
+      .fa-clock {
+        color: #8e44ad;
+      }
+      .fa-lightbulb {
+        color: #f39c12;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>
+        <i class="fas fa-plug" style="color: #e74c3c"></i> ESP32 Cloud Dashboard
+      </h1>
+    </div>
+
+    <div class="dashboard-container">
+      <!-- 24-Hour Consumption Line Chart -->
+      <div class="chart-card">
+        <h2>
+          <i class="fas fa-chart-line" style="color: #2ecc71"></i> Hourly
+          Consumption (Last 24 Hours)
+        </h2>
+        <div class="chart-wrapper">
+          <canvas id="hourlyChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Live Telemetry Metric Cards -->
+      <div class="grid">
+        <div class="card">
+          <i class="fas fa-clock icon"></i>
+          <div class="content">
+            <div class="label">LAST UPDATED (LOCAL)</div>
+            <div class="value" id="time">--:--:--</div>
+            <div class="sublabel" id="date">Syncing with Cloud...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <i class="fas fa-bolt icon"></i>
+          <div class="content">
+            <div class="label">VOLTAGE</div>
+            <div class="value">
+              <span id="voltage">--</span><span class="unit">V</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <i class="fas fa-exchange-alt icon"></i>
+          <div class="content">
+            <div class="label">CURRENT</div>
+            <div class="value">
+              <span id="current">--</span><span class="unit">A</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <i class="fas fa-plug icon"></i>
+          <div class="content">
+            <div class="label">POWER</div>
+            <div class="value">
+              <span id="power">--</span><span class="unit">W</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <i class="fas fa-chart-line icon"></i>
+          <div class="content">
+            <div class="label">TOTAL ACCUMULATED</div>
+            <div class="value">
+              <span id="energy">--</span><span class="unit">kWh</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <i class="fas fa-lightbulb icon"></i>
+          <div class="content">
+            <div class="label">PREDICTED HOUR ENERGY</div>
+            <div class="value">
+              <span id="predicted_hour">--</span><span class="unit">kWh</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <i class="fas fa-wave-square icon"></i>
+          <div class="content">
+            <div class="label">FREQUENCY</div>
+            <div class="value">
+              <span id="frequency">--</span><span class="unit">Hz</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <i class="fas fa-percent icon"></i>
+          <div class="content">
+            <div class="label">POWER FACTOR</div>
+            <div class="value" id="pf">--</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Firebase JavaScript Modular SDK -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+      import {
+        getDatabase,
+        ref,
+        onValue,
+        query,
+        limitToLast,
+      } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+      const firebaseConfig = {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID,
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+
+      // Initialize Chart.js
+      const ctx = document.getElementById("hourlyChart").getContext("2d");
+      const hourlyChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: "Energy Consumed (kWh)",
+              data: [],
+              borderColor: "#2ecc71",
+              backgroundColor: "rgba(46, 204, 113, 0.15)",
+              borderWidth: 2,
+              fill: true,
+              tension: 0.3,
+              pointRadius: 4,
+              pointBackgroundColor: "#2ecc71",
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, title: { display: true, text: "kWh" } },
+          },
+        },
+      });
+
+      // 1. Realtime Listener for Live Telemetry
+      const liveTelemetryRef = ref(db, "live_telemetry");
+      onValue(liveTelemetryRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        document.getElementById("voltage").innerText =
+          data.voltage !== undefined ? data.voltage : "--";
+        document.getElementById("current").innerText =
+          data.current !== undefined ? data.current : "--";
+        document.getElementById("power").innerText =
+          data.power !== undefined ? data.power : "--";
+        document.getElementById("energy").innerText =
+          data.energy !== undefined ? data.energy : "--";
+        document.getElementById("predicted_hour").innerText =
+          data.predicted_hour_energy !== undefined
+            ? data.predicted_hour_energy
+            : "--";
+        document.getElementById("frequency").innerText =
+          data.frequency !== undefined ? data.frequency : "--";
+        document.getElementById("pf").innerText =
+          data.power_factor !== undefined ? data.power_factor : "--";
+
+        // Format Timestamp into Local Date & Time
+        if (data.timestamp) {
+          const localDate = new Date(data.timestamp * 1000);
+          document.getElementById("time").innerText =
+            localDate.toLocaleTimeString( "en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              // second: "2-digit",
+            });
+          document.getElementById("date").innerText =
+            localDate.toLocaleDateString(undefined, {
+              weekday: "short",
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            });
+        }
+      });
+
+      // 2. Realtime Listener for Last 24 Hourly Logs
+      const hourlyLogsRef = query(ref(db, "hourly_logs"), limitToLast(24));
+      onValue(hourlyLogsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        const labels = [];
+        const values = [];
+
+        Object.keys(data).forEach((key) => {
+          const item = data[key];
+          // Format log timestamp or key to clean label (e.g. "14:00")
+          let timeLabel = key;
+          if (item.timestamp) {
+            const logDate = new Date(item.timestamp * 1000);
+            timeLabel = logDate.getHours().toString().padStart(2, "0") + ":00";
+          } else if (key.includes("_")) {
+            timeLabel = key.split("_")[1];
+          }
+
+          labels.push(timeLabel);
+          values.push(item.kwh_consumed || 0);
+        });
+
+        // Update Chart
+        hourlyChart.data.labels = labels;
+        hourlyChart.data.datasets[0].data = values;
+        hourlyChart.update();
+      });
+    </script>
+  </body>
+</html>
