@@ -11,4 +11,7 @@ const String STR_SUBNET = "255.255.255.0";   // Standard subnet mask
 const String STR_PRIMARY_DNS = "8.8.8.8";    // Google DNS (Required for API & NTP domain resolution)
 const String STR_SECONDARY_DNS = "8.8.4.4";  // Google DNS (Optional)
 
+// Firebase Database Configuration
+const unsigned long FIREBASE_LIVE_INTERVAL = 60000; // 60 seconds update interval
+
 #endif

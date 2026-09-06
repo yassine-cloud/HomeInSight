@@ -6,6 +6,8 @@
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include <Firebase_ESP_Client.h>
+#include "addons/RTDBHelper.h"
 #include "secrets.h"
 #include "config.h"
 
@@ -24,6 +26,12 @@ const char *fallbackTZ = "CET-1";
 // Global Variables for Location & Server Data
 String detectedLocation = "Detecting...";
 String detectedTimezone = "CET-1";
+
+// Firebase Objects & Timers
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
+unsigned long lastFirebaseLiveUpdate = 0;
 
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
@@ -242,6 +250,41 @@ String processor(const String &var) {
   return String();
 }
 
+void sendFirebaseLiveTelemetry() {
+  if (!Firebase.ready()) return;
+
+  FirebaseJson json;
+  time_t now;
+  time(&now);
+
+  json.set("voltage", isnan(voltage) ? 0.0 : voltage);
+  json.set("current", isnan(current) ? 0.0 : current);
+  json.set("power", isnan(power) ? 0.0 : power);
+  json.set("energy", isnan(energy) ? 0.0 : energy);
+  json.set("frequency", isnan(frequency) ? 0.0 : frequency);
+  json.set("power_factor", isnan(pf) ? 0.0 : pf);
+  json.set("timestamp", (unsigned long)now);
+
+  Firebase.RTDB.setJSON(&fbdo, "/live_telemetry", &json);
+}
+
+void sendFirebaseHourlyLog(const String &hourKey, float kwh, float v, float c, float p) {
+  if (!Firebase.ready()) return;
+
+  FirebaseJson json;
+  time_t now;
+  time(&now);
+
+  json.set("kwh_consumed", kwh);
+  json.set("voltage", isnan(v) ? 0.0 : v);
+  json.set("current", isnan(c) ? 0.0 : c);
+  json.set("power", isnan(p) ? 0.0 : p);
+  json.set("timestamp", (unsigned long)now);
+
+  String path = "/hourly_logs/" + hourKey;
+  Firebase.RTDB.setJSON(&fbdo, path.c_str(), &json);
+}
+
 // --- STATIC IP CONFIGURATION ---
 // Global network objects
 IPAddress local_IP;
@@ -280,6 +323,12 @@ void setup() {
 
   // Execute Location and Time Sync over Secure HTTPS
   syncLocationAndTIme();
+
+  // Initialize Firebase RTDB
+  config.database_url = FIREBASE_HOST; // Defined in secrets.h
+  config.signer.tokens.legacy_token = FIREBASE_AUTH; // Defined in secrets.h
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true);
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/html", index_html, processor);
@@ -341,6 +390,14 @@ void loop() {
         char buf[35];
         snprintf(buf, sizeof(buf), "From %02d:00 To %02d:00", lastTrackedHour, currentHour);
         lastHourTimeLabel = String(buf);
+
+        // --- LOG HOURLY DATA TO FIREBASE ---
+        char keyBuf[30];
+        snprintf(keyBuf, sizeof(keyBuf), "%04d-%02d-%02d_%02d:00",
+                 timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, lastTrackedHour);
+        sendFirebaseHourlyLog(String(keyBuf), lastHourEnergy, v, c, p);
+        // ---------------------------------------------------
+
       } else {
         // Ignore the partial startup hour and lock onto first full hour start
         firstFullHourStarted = true;
@@ -363,6 +420,12 @@ void loop() {
       // Prior to the first full hour, project purely off current power draw
       predictedHourEnergy = isnan(power) ? 0.0 : (power / 1000.0);
     }
+  }
+
+  // Send live values to Firebase every 60 seconds
+  if (millis() - lastFirebaseLiveUpdate >= FIREBASE_LIVE_INTERVAL) {
+    lastFirebaseLiveUpdate = millis();
+    sendFirebaseLiveTelemetry();
   }
 
   delay(2000);
