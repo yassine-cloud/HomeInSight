@@ -12,6 +12,7 @@
 #define STR_SECONDARY_DNS "8.8.4.4"  // Google DNS (Optional)
 
 // Firebase Database Configuration
-const unsigned long FIREBASE_LIVE_INTERVAL = 60000; // 60 seconds update interval
-
+const uint32_t  FIREBASE_LIVE_INTERVAL = 60; // 60 seconds update interval
+const uint32_t  SENSOR_READ_INTERVAL = 2000; // 2 seconds update interval
+const uint32_t  DELAY_LOOP_INTERVAL = 500; // 500ms delay loop interval
 #endif

@@ -18,11 +18,23 @@ void FirebaseService::begin(const char *host, const char *authKey)
     Firebase.reconnectWiFi(true);
 }
 
-bool FirebaseService::isReadyForLiveUpdate(unsigned long intervalMs)
+bool FirebaseService::isReadyForLiveUpdate(uint32_t intervalSeconds)
 {
-    if (millis() - lastLiveUpdate >= intervalMs)
+    if (intervalSeconds == 0)
+        return false;
+
+    time_t now;
+    time(&now);
+
+    // Guard: Do not trigger if NTP time has not synced yet
+    if (now < 1600000000)
+        return false;
+
+    time_t currentSegment = now / intervalSeconds;
+
+    if (currentSegment != lastLoggedSegment)
     {
-        lastLiveUpdate = millis();
+        lastLoggedSegment = currentSegment;
         return true;
     }
     return false;
