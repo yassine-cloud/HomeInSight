@@ -22,9 +22,18 @@ AnalyticsResult EnergyAnalytics::update(float currentEnergy, float currentPower,
             snprintf(labelBuf, sizeof(labelBuf), "From %02d:00 To %02d:00", lastTrackedHour, currentHour);
             lastHourTimeLabel = String(labelBuf);
 
+            // Shift timestamp back 1 hour to get the correct date for the completed hour
+            struct tm loggedTime = timeinfo;
+            loggedTime.tm_isdst = -1; // Force auto-detection of DST rules
+            time_t loggedEpoch = mktime(&loggedTime) - 3600;
+            localtime_r(&loggedEpoch, &loggedTime);
+
             char keyBuf[30];
             snprintf(keyBuf, sizeof(keyBuf), "%04d-%02d-%02d_%02d:00",
-                     timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, lastTrackedHour);
+                     loggedTime.tm_year + 1900,
+                     loggedTime.tm_mon + 1,
+                     loggedTime.tm_mday,
+                     loggedTime.tm_hour); // Uses loggedTime.tm_hour to guarantee sync with the date
 
             result.hourRolloverOccurred = true;
             result.lastHourEnergy = lastHourEnergy;
