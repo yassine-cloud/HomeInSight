@@ -337,11 +337,12 @@
         if (data.timestamp) {
           const localDate = new Date(data.timestamp * 1000);
           document.getElementById("time").innerText =
-            localDate.toLocaleTimeString( "en-US", {
-              hour: "2-digit",
+            localDate.toLocaleTimeString("en-US", {
+              hour: "numeric",
               minute: "2-digit",
-              // second: "2-digit",
+              hour12: true,
             });
+
           document.getElementById("date").innerText =
             localDate.toLocaleDateString(undefined, {
               weekday: "short",
@@ -358,22 +359,48 @@
         const data = snapshot.val();
         if (!data) return;
 
+        // Extract and convert keys to array with calculated Unix timestamps
+        const entries = Object.keys(data).map((key) => {
+
+          // Format log timestamp or key to clean label (e.g. "14:00")
+          const item = data[key];
+          let timestampMs = 0;
+
+          if (item.timestamp) {
+            timestampMs = item.timestamp * 1000;
+          } else if (key.includes("_")) {
+            // Converts "YYYY-MM-DD_HH:mm" to "YYYY-MM-DDTHH:mm" for Date parsing
+            const formattedKey = key.replace("_", "T");
+            timestampMs = new Date(formattedKey).getTime();
+          }
+
+          return {
+            key,
+            item,
+            timestampMs,
+            kwh: item.kwh_consumed || 0,
+          };
+        });
+
+        // Sort chronologically ascending by timestamp
+        entries.sort((a, b) => a.timestampMs - b.timestampMs);
+
         const labels = [];
         const values = [];
 
-        Object.keys(data).forEach((key) => {
-          const item = data[key];
-          // Format log timestamp or key to clean label (e.g. "14:00")
-          let timeLabel = key;
-          if (item.timestamp) {
-            const logDate = new Date(item.timestamp * 1000);
-            timeLabel = logDate.getHours().toString().padStart(2, "0") + ":00";
-          } else if (key.includes("_")) {
-            timeLabel = key.split("_")[1];
+        entries.forEach((entry) => {
+          let timeLabel = entry.key;
+
+          if (entry.timestampMs) {
+            const date = new Date(entry.timestampMs);
+            const hours = date.getHours().toString().padStart(2, "0");
+            timeLabel = `${hours}:00`;
+          } else if (entry.key.includes("_")) {
+            timeLabel = entry.key.split("_")[1];
           }
 
           labels.push(timeLabel);
-          values.push(item.kwh_consumed || 0);
+          values.push(entry.kwh);
         });
 
         // Update Chart
