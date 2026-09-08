@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily History Analysis</title>
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+      :root {
+        --bg-color: #f4f6f9;
+        --card-bg: #ffffff;
+        --text-main: #2c3e50;
+        --text-muted: #7f8c8d;
+        --accent-blue: #3498db;
+        --accent-green: #2ecc71;
+        --accent-orange: #e67e22;
+        --border-radius: 12px;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: var(--bg-color);
+        color: var(--text-main);
+      }
+
+      .container {
+        max-width: 1250px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .btn-back {
+        background: var(--card-bg);
+        border: 1px solid #dcdfe6;
+        padding: 10px 16px;
+        border-radius: 8px;
+        color: var(--text-main);
+        text-decoration: none;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .layout-grid {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 20px;
+      }
+
+      @media (max-width: 900px) {
+        .layout-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        background: var(--card-bg);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+
+      /* Sidebar Calendar */
+      .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+      }
+
+      .day-head {
+        text-align: center;
+        font-size: 11px;
+        font-weight: bold;
+        color: var(--text-muted);
+      }
+
+      .day-cell {
+        min-height: 52px;
+        background: #fafbfc;
+        border: 1px solid #e1e8ed;
+        border-radius: 6px;
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .day-cell.available {
+        background-color: #ffffff;
+        cursor: pointer;
+        border-color: #abebc6;
+      }
+
+      .day-cell.available:hover {
+        border-color: var(--accent-green);
+      }
+
+      .day-cell.selected {
+        background-color: var(--accent-blue) !important;
+        border-color: var(--accent-blue) !important;
+      }
+
+      .day-cell.selected .day-num,
+      .day-cell.selected .kwh-val,
+      .day-cell.selected .cost-val {
+        color: #ffffff !important;
+      }
+
+      .day-cell.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .day-num {
+        font-size: 11px;
+        font-weight: bold;
+      }
+
+      .day-info {
+        display: flex;
+        flex-direction: column;
+        text-align: right;
+      }
+
+      .kwh-val {
+        font-size: 9px;
+        font-weight: bold;
+        color: var(--accent-green);
+      }
+
+      .cost-val {
+        font-size: 9px;
+        font-weight: bold;
+        color: var(--accent-orange);
+      }
+
+      /* Analytics Summary Cards */
+      .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .stat-card {
+        background: #f8fafc;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid var(--accent-blue);
+      }
+
+      .stat-card.cost {
+        border-left-color: var(--accent-orange);
+      }
+
+      .stat-card .title {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: bold;
+      }
+
+      .stat-card .val {
+        font-size: 20px;
+        font-weight: bold;
+        margin-top: 5px;
+      }
+
+      .chart-wrapper {
+        position: relative;
+        height: 380px;
+        width: 100%;
+      }
+
+      .nav-btns {
+        display: flex;
+        gap: 10px;
+      }
+
+      .btn {
+        background: var(--card-bg);
+        border: 1px solid #dcdfe6;
+        padding: 8px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1><i class="fas fa-chart-bar" style="color: var(--accent-blue)"></i> 24-Hour Day Profile</h1>
+        <a href="index.html" class="btn-back"><i class="fas fa-calendar-alt"></i> Back to Calendar</a>
+      </div>
+
+      <div class="layout-grid">
+        <!-- Sidebar Calendar -->
+        <div class="card">
+          <div class="calendar-header">
+            <button id="prevMonth" class="btn"><i class="fas fa-chevron-left"></i></button>
+            <span id="calMonthYear" style="font-weight: bold;">Month Year</span>
+            <button id="nextMonth" class="btn"><i class="fas fa-chevron-right"></i></button>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
+
+        <!-- Selected Day Details & Chart -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 id="selectedDateTitle" style="margin: 0;">Select Date</h2>
+            <div class="nav-btns">
+              <button id="prevDayBtn" class="btn"><i class="fas fa-chevron-left"></i> Previous Day</button>
+              <button id="nextDayBtn" class="btn">Next Day <i class="fas fa-chevron-right"></i></button>
+            </div>
+          </div>
+
+          <div class="summary-cards">
+            <div class="stat-card">
+              <div class="title">TOTAL ENERGY</div>
+              <div class="val"><span id="statTotalKwh">0.000</span> kWh</div>
+            </div>
+            <div class="stat-card cost">
+              <div class="title">ESTIMATED COST</div>
+              <div class="val"><span id="statTotalCost">0.000</span> TDN</div>
+            </div>
+            <div class="stat-card">
+              <div class="title">PEAK HOUR</div>
+              <div class="val" id="statPeakHour">--:00</div>
+            </div>
+          </div>
+
+          <div class="chart-wrapper">
+            <canvas id="dayChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Firebase SDK Setup -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+      import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+      const STEG_RATE = 0.218; // 218 millimes per kWh
+
+      const firebaseConfig = {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID,
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+
+      // Initialize Chart.js
+      const ctx = document.getElementById("dayChart").getContext("2d");
+      const dayChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`),
+          datasets: [
+            {
+              label: "Hourly Energy (kWh)",
+              data: Array(24).fill(0),
+              backgroundColor: "rgba(52, 152, 219, 0.75)",
+              borderColor: "#3498db",
+              borderWidth: 1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: "kWh" } },
+          },
+        },
+      });
+
+      let logsData = {};
+      let dailyDataMap = {};
+      let availableDates = [];
+      let calDate = new Date();
+      let activeDateStr = null;
+
+      async function init() {
+        const snapshot = await get(ref(db, "hourly_logs"));
+        if (snapshot.exists()) {
+          logsData = snapshot.val();
+          dailyDataMap = {};
+
+          Object.keys(logsData).forEach((key) => {
+            const dateStr = key.split("_")[0];
+            const kwh = logsData[key].kwh_consumed || 0;
+            if (dateStr) {
+              if (!dailyDataMap[dateStr]) {
+                dailyDataMap[dateStr] = { kwh: 0, cost: 0 };
+              }
+              dailyDataMap[dateStr].kwh += kwh;
+            }
+          });
+
+          Object.keys(dailyDataMap).forEach((dateStr) => {
+            dailyDataMap[dateStr].cost = dailyDataMap[dateStr].kwh * STEG_RATE;
+          });
+
+          availableDates = Object.keys(dailyDataMap).sort();
+
+          // Get date parameter from URL if exists
+          const urlParams = new URLSearchParams(window.location.search);
+          const dateParam = urlParams.get("date");
+
+          if (dateParam && availableDates.includes(dateParam)) {
+            selectDate(dateParam);
+          } else if (availableDates.length > 0) {
+            selectDate(availableDates[availableDates.length - 1]);
+          }
+        }
+      }
+
+      function renderCalendar() {
+        const grid = document.getElementById("calendarGrid");
+        grid.innerHTML = "";
+
+        const year = calDate.getFullYear();
+        const month = calDate.getMonth();
+
+        document.getElementById("calMonthYear").innerText = new Date(year, month).toLocaleDateString("en-US", {
+          month: "short",
+          year: "numeric",
+        });
+
+        ["S", "M", "T", "W", "T", "F", "S"].forEach((d) => {
+          const div = document.createElement("div");
+          div.className = "day-head";
+          div.innerText = d;
+          grid.appendChild(div);
+        });
+
+        const firstDayIdx = new Date(year, month, 1).getDay();
+        const totalDays = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 0; i < firstDayIdx; i++) {
+          grid.appendChild(document.createElement("div"));
+        }
+
+        for (let day = 1; day <= totalDays; day++) {
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const cell = document.createElement("div");
+          cell.className = "day-cell";
+
+          const dayNum = document.createElement("div");
+          dayNum.className = "day-num";
+          dayNum.innerText = day;
+          cell.appendChild(dayNum);
+
+          if (dailyDataMap[dateStr]) {
+            cell.classList.add("available");
+
+            const info = document.createElement("div");
+            info.className = "day-info";
+
+            const kwhSpan = document.createElement("span");
+            kwhSpan.className = "kwh-val";
+            kwhSpan.innerText = `${dailyDataMap[dateStr].kwh.toFixed(1)}k`;
+
+            const costSpan = document.createElement("span");
+            costSpan.className = "cost-val";
+            costSpan.innerText = `${dailyDataMap[dateStr].cost.toFixed(2)}D`;
+
+            info.appendChild(kwhSpan);
+            info.appendChild(costSpan);
+            cell.appendChild(info);
+
+            cell.onclick = () => selectDate(dateStr);
+          } else {
+            cell.classList.add("disabled");
+          }
+
+          if (dateStr === activeDateStr) {
+            cell.classList.add("selected");
+          }
+
+          grid.appendChild(cell);
+        }
+      }
+
+      function selectDate(dateStr) {
+        activeDateStr = dateStr;
+        document.getElementById("selectedDateTitle").innerText = `Energy Profile: ${dateStr}`;
+
+        // Sync month view on calendar
+        const [y, m] = dateStr.split("-").map(Number);
+        calDate = new Date(y, m - 1, 1);
+
+        const hours = Array(24).fill(0);
+        let totalKwh = 0;
+        let peakVal = -1;
+        let peakHour = "--:00";
+
+        Object.keys(logsData).forEach((key) => {
+          if (key.startsWith(dateStr)) {
+            const timeStr = key.split("_")[1];
+            if (timeStr) {
+              const h = parseInt(timeStr.split(":")[0], 10);
+              const val = logsData[key].kwh_consumed || 0;
+              if (h >= 0 && h < 24) {
+                hours[h] = val;
+                totalKwh += val;
+                if (val > peakVal) {
+                  peakVal = val;
+                  peakHour = `${String(h).padStart(2, "0")}:00`;
+                }
+              }
+            }
+          }
+        });
+
+        const totalCost = totalKwh * STEG_RATE;
+
+        document.getElementById("statTotalKwh").innerText = totalKwh.toFixed(3);
+        document.getElementById("statTotalCost").innerText = totalCost.toFixed(3);
+        document.getElementById("statPeakHour").innerText = peakHour;
+
+        dayChart.data.datasets[0].data = hours;
+        dayChart.update();
+
+        renderCalendar();
+        updateNavs();
+      }
+
+      function updateNavs() {
+        const idx = availableDates.indexOf(activeDateStr);
+        document.getElementById("prevDayBtn").disabled = idx <= 0;
+        document.getElementById("nextDayBtn").disabled = idx < 0 || idx >= availableDates.length - 1;
+      }
+
+      document.getElementById("prevDayBtn").onclick = () => {
+        const idx = availableDates.indexOf(activeDateStr);
+        if (idx > 0) selectDate(availableDates[idx - 1]);
+      };
+
+      document.getElementById("nextDayBtn").onclick = () => {
+        const idx = availableDates.indexOf(activeDateStr);
+        if (idx < availableDates.length - 1) selectDate(availableDates[idx + 1]);
+      };
+
+      document.getElementById("prevMonth").onclick = () => {
+        calDate.setMonth(calDate.getMonth() - 1);
+        renderCalendar();
+      };
+
+      document.getElementById("nextMonth").onclick = () => {
+        calDate.setMonth(calDate.getMonth() + 1);
+        renderCalendar();
+      };
+
+      init();
+    </script>
+  </body>
+</html>

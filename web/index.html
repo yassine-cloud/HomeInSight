@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Firebase Power Dashboard</title>
+    <title>ESP32 Cloud Power Dashboard</title>
 
     <!-- FontAwesome Icons & Chart.js -->
     <link
@@ -18,6 +18,9 @@
         --card-bg: #ffffff;
         --text-main: #2c3e50;
         --text-muted: #7f8c8d;
+        --accent-blue: #3498db;
+        --accent-green: #2ecc71;
+        --accent-orange: #e67e22;
         --border-radius: 12px;
       }
 
@@ -29,17 +32,6 @@
         color: var(--text-main);
       }
 
-      .header {
-        text-align: center;
-        margin-bottom: 25px;
-      }
-
-      .header h1 {
-        margin: 0;
-        font-size: 28px;
-        color: var(--text-main);
-      }
-
       .dashboard-container {
         max-width: 1200px;
         margin: 0 auto;
@@ -48,7 +40,34 @@
         gap: 25px;
       }
 
-      /* Chart Container */
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+      }
+
+      .nav-btn {
+        background-color: var(--accent-blue);
+        color: white;
+        text-decoration: none;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: background 0.2s ease;
+      }
+
+      .nav-btn:hover {
+        background-color: #2980b9;
+      }
+
+      /* Live Chart Card */
       .chart-card {
         background: var(--card-bg);
         border-radius: var(--border-radius);
@@ -59,7 +78,6 @@
       .chart-card h2 {
         margin-top: 0;
         font-size: 18px;
-        color: var(--text-main);
         display: flex;
         align-items: center;
         gap: 10px;
@@ -71,10 +89,10 @@
         width: 100%;
       }
 
-      /* Card Grid */
+      /* Telemetry Grid */
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
         gap: 20px;
       }
 
@@ -85,7 +103,6 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         display: flex;
         align-items: center;
-        text-align: left;
       }
 
       .icon {
@@ -101,7 +118,7 @@
       }
 
       .label {
-        font-size: 13px;
+        font-size: 12px;
         color: var(--text-muted);
         margin-bottom: 4px;
         font-weight: 700;
@@ -117,7 +134,6 @@
       .value {
         font-size: 22px;
         font-weight: bold;
-        color: var(--text-main);
         display: flex;
         align-items: baseline;
       }
@@ -129,47 +145,147 @@
         font-weight: normal;
       }
 
-      /* Custom Icon Colors */
-      .fa-bolt {
-        color: #f1c40f;
+      /* Bottom Calendar Section */
+      .calendar-section {
+        background: var(--card-bg);
+        border-radius: var(--border-radius);
+        padding: 25px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
       }
-      .fa-exchange-alt {
-        color: #3498db;
+
+      .calendar-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
       }
-      .fa-plug {
-        color: #e74c3c;
+
+      .calendar-section-header h2 {
+        margin: 0;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
       }
-      .fa-chart-line {
-        color: #2ecc71;
+
+      .rate-badge {
+        font-size: 13px;
+        background: #fef5e7;
+        color: var(--accent-orange);
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        border: 1px solid #fadbd8;
       }
-      .fa-wave-square {
-        color: #9b59b6;
+
+      .calendar-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
       }
-      .fa-percent {
-        color: #e67e22;
+
+      .btn-nav {
+        background-color: var(--bg-color);
+        border: 1px solid #dcdfe6;
+        padding: 8px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
       }
-      .fa-clock {
-        color: #8e44ad;
+
+      .btn-nav:hover {
+        background-color: #eef2f7;
       }
-      .fa-lightbulb {
-        color: #f39c12;
+
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
       }
+
+      .day-head {
+        text-align: center;
+        font-size: 12px;
+        font-weight: bold;
+        color: var(--text-muted);
+        padding-bottom: 6px;
+      }
+
+      .day-cell {
+        min-height: 80px;
+        background: #fafbfc;
+        border: 1px solid #e1e8ed;
+        border-radius: 8px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      .day-cell.available {
+        background-color: #ffffff;
+        border-color: #abebc6;
+        cursor: pointer;
+      }
+
+      .day-cell.available:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(46, 204, 113, 0.2);
+        border-color: var(--accent-green);
+      }
+
+      .day-cell.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .day-num {
+        font-weight: bold;
+        font-size: 13px;
+      }
+
+      .day-info {
+        display: flex;
+        flex-direction: column;
+        text-align: right;
+      }
+
+      .kwh-val {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--accent-green);
+      }
+
+      .cost-val {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--accent-orange);
+      }
+
+      /* Icon Colors */
+      .fa-bolt { color: #f1c40f; }
+      .fa-exchange-alt { color: #3498db; }
+      .fa-plug { color: #e74c3c; }
+      .fa-chart-line { color: #2ecc71; }
+      .fa-wave-square { color: #9b59b6; }
+      .fa-percent { color: #e67e22; }
+      .fa-clock { color: #8e44ad; }
+      .fa-lightbulb { color: #f39c12; }
     </style>
   </head>
   <body>
-    <div class="header">
-      <h1>
-        <i class="fas fa-plug" style="color: #e74c3c"></i> ESP32 Cloud Dashboard
-      </h1>
-    </div>
-
     <div class="dashboard-container">
-      <!-- 24-Hour Consumption Line Chart -->
+      <!-- Header -->
+      <div class="header">
+        <h1><i class="fas fa-plug" style="color: #e74c3c"></i> ESP32 Cloud Dashboard</h1>
+        <a href="history.html" class="nav-btn"><i class="fas fa-chart-bar"></i> Full History View</a>
+      </div>
+
+      <!-- 24-Hour Realtime Consumption Line Chart -->
       <div class="chart-card">
-        <h2>
-          <i class="fas fa-chart-line" style="color: #2ecc71"></i> Hourly
-          Consumption (Last 24 Hours)
-        </h2>
+        <h2><i class="fas fa-chart-line" style="color: #2ecc71"></i> Live Hourly Consumption (Last 24 Hours)</h2>
         <div class="chart-wrapper">
           <canvas id="hourlyChart"></canvas>
         </div>
@@ -190,9 +306,7 @@
           <i class="fas fa-bolt icon"></i>
           <div class="content">
             <div class="label">VOLTAGE</div>
-            <div class="value">
-              <span id="voltage">--</span><span class="unit">V</span>
-            </div>
+            <div class="value"><span id="voltage">--</span><span class="unit">V</span></div>
           </div>
         </div>
 
@@ -200,9 +314,7 @@
           <i class="fas fa-exchange-alt icon"></i>
           <div class="content">
             <div class="label">CURRENT</div>
-            <div class="value">
-              <span id="current">--</span><span class="unit">A</span>
-            </div>
+            <div class="value"><span id="current">--</span><span class="unit">A</span></div>
           </div>
         </div>
 
@@ -210,9 +322,7 @@
           <i class="fas fa-plug icon"></i>
           <div class="content">
             <div class="label">POWER</div>
-            <div class="value">
-              <span id="power">--</span><span class="unit">W</span>
-            </div>
+            <div class="value"><span id="power">--</span><span class="unit">W</span></div>
           </div>
         </div>
 
@@ -220,9 +330,7 @@
           <i class="fas fa-chart-line icon"></i>
           <div class="content">
             <div class="label">TOTAL ACCUMULATED</div>
-            <div class="value">
-              <span id="energy">--</span><span class="unit">kWh</span>
-            </div>
+            <div class="value"><span id="energy">--</span><span class="unit">kWh</span></div>
           </div>
         </div>
 
@@ -230,9 +338,7 @@
           <i class="fas fa-lightbulb icon"></i>
           <div class="content">
             <div class="label">PREDICTED HOUR ENERGY</div>
-            <div class="value">
-              <span id="predicted_hour">--</span><span class="unit">kWh</span>
-            </div>
+            <div class="value"><span id="predicted_hour">--</span><span class="unit">kWh</span></div>
           </div>
         </div>
 
@@ -240,9 +346,7 @@
           <i class="fas fa-wave-square icon"></i>
           <div class="content">
             <div class="label">FREQUENCY</div>
-            <div class="value">
-              <span id="frequency">--</span><span class="unit">Hz</span>
-            </div>
+            <div class="value"><span id="frequency">--</span><span class="unit">Hz</span></div>
           </div>
         </div>
 
@@ -254,18 +358,37 @@
           </div>
         </div>
       </div>
+
+      <!-- Bottom Calendar View: Daily Totals & STEG Costs -->
+      <div class="calendar-section">
+        <div class="calendar-section-header">
+          <h2><i class="fas fa-calendar-alt" style="color: var(--accent-blue)"></i> Daily Consumption Calendar</h2>
+          <div class="rate-badge"><i class="fas fa-tag"></i> STEG Rate: 218 millimes / kWh</div>
+        </div>
+
+        <div class="calendar-nav">
+          <button id="prevMonth" class="btn-nav"><i class="fas fa-chevron-left"></i> Prev Month</button>
+          <span id="calendarMonthYear" style="font-weight: bold; font-size: 18px;">Month Year</span>
+          <button id="nextMonth" class="btn-nav">Next Month <i class="fas fa-chevron-right"></i></button>
+        </div>
+
+        <div id="calendarGrid" class="calendar-grid"></div>
+      </div>
     </div>
 
-    <!-- Firebase JavaScript Modular SDK -->
+    <!-- Firebase SDK Setup -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
       import {
         getDatabase,
         ref,
         onValue,
+        get,
         query,
-        limitToLast,
+        limitToLast
       } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+      const STEG_RATE = 0.218; // 218 millimes = 0.218 TDN per kWh
 
       const firebaseConfig = {
         apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -280,7 +403,7 @@
       const app = initializeApp(firebaseConfig);
       const db = getDatabase(app);
 
-      // Initialize Chart.js
+      // --- Chart 1: Live 24-Hour Line Chart ---
       const ctx = document.getElementById("hourlyChart").getContext("2d");
       const hourlyChart = new Chart(ctx, {
         type: "line",
@@ -295,8 +418,6 @@
               borderWidth: 2,
               fill: true,
               tension: 0.3,
-              pointRadius: 4,
-              pointBackgroundColor: "#2ecc71",
             },
           ],
         },
@@ -310,104 +431,162 @@
         },
       });
 
-      // 1. Realtime Listener for Live Telemetry
-      const liveTelemetryRef = ref(db, "live_telemetry");
-      onValue(liveTelemetryRef, (snapshot) => {
+      // 1. Live Telemetry Listener
+      onValue(ref(db, "live_telemetry"), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
-        document.getElementById("voltage").innerText =
-          data.voltage !== undefined ? data.voltage : "--";
-        document.getElementById("current").innerText =
-          data.current !== undefined ? data.current : "--";
-        document.getElementById("power").innerText =
-          data.power !== undefined ? data.power : "--";
-        document.getElementById("energy").innerText =
-          data.energy !== undefined ? data.energy : "--";
-        document.getElementById("predicted_hour").innerText =
-          data.predicted_hour_energy !== undefined
-            ? data.predicted_hour_energy
-            : "--";
-        document.getElementById("frequency").innerText =
-          data.frequency !== undefined ? data.frequency : "--";
-        document.getElementById("pf").innerText =
-          data.power_factor !== undefined ? data.power_factor : "--";
+        document.getElementById("voltage").innerText = data.voltage !== undefined ? data.voltage : "--";
+        document.getElementById("current").innerText = data.current !== undefined ? data.current : "--";
+        document.getElementById("power").innerText = data.power !== undefined ? data.power : "--";
+        document.getElementById("energy").innerText = data.energy !== undefined ? data.energy : "--";
+        document.getElementById("predicted_hour").innerText = data.predicted_hour_energy !== undefined ? data.predicted_hour_energy : "--";
+        document.getElementById("frequency").innerText = data.frequency !== undefined ? data.frequency : "--";
+        document.getElementById("pf").innerText = data.power_factor !== undefined ? data.power_factor : "--";
 
-        // Format Timestamp into Local Date & Time
         if (data.timestamp) {
           const localDate = new Date(data.timestamp * 1000);
-          document.getElementById("time").innerText =
-            localDate.toLocaleTimeString("en-US", {
-              hour: "numeric",
-              minute: "2-digit",
-              hour12: true,
-            });
+          document.getElementById("time").innerText = localDate.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
 
-          document.getElementById("date").innerText =
-            localDate.toLocaleDateString(undefined, {
-              weekday: "short",
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-            });
+          document.getElementById("date").innerText = localDate.toLocaleDateString(undefined, {
+            weekday: "short",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          });
         }
       });
 
-      // 2. Realtime Listener for Last 24 Hourly Logs
-      const hourlyLogsRef = query(ref(db, "hourly_logs"), limitToLast(24));
-      onValue(hourlyLogsRef, (snapshot) => {
+      // 2. Realtime Listener for Last 24 Hourly Logs Chart
+      onValue(query(ref(db, "hourly_logs"), limitToLast(24)), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
-        // Extract and convert keys to array with calculated Unix timestamps
         const entries = Object.keys(data).map((key) => {
-
-          // Format log timestamp or key to clean label (e.g. "14:00")
           const item = data[key];
-          let timestampMs = 0;
-
-          if (item.timestamp) {
-            timestampMs = item.timestamp * 1000;
-          } else if (key.includes("_")) {
-            // Converts "YYYY-MM-DD_HH:mm" to "YYYY-MM-DDTHH:mm" for Date parsing
-            const formattedKey = key.replace("_", "T");
-            timestampMs = new Date(formattedKey).getTime();
-          }
-
-          return {
-            key,
-            item,
-            timestampMs,
-            kwh: item.kwh_consumed || 0,
-          };
+          let timestampMs = item.timestamp ? item.timestamp * 1000 : new Date(key.replace("_", "T")).getTime();
+          return { key, kwh: item.kwh_consumed || 0, timestampMs };
         });
 
-        // Sort chronologically ascending by timestamp
         entries.sort((a, b) => a.timestampMs - b.timestampMs);
 
-        const labels = [];
-        const values = [];
-
-        entries.forEach((entry) => {
-          let timeLabel = entry.key;
-
-          if (entry.timestampMs) {
-            const date = new Date(entry.timestampMs);
-            const hours = date.getHours().toString().padStart(2, "0");
-            timeLabel = `${hours}:00`;
-          } else if (entry.key.includes("_")) {
-            timeLabel = entry.key.split("_")[1];
-          }
-
-          labels.push(timeLabel);
-          values.push(entry.kwh);
-        });
-
-        // Update Chart
-        hourlyChart.data.labels = labels;
-        hourlyChart.data.datasets[0].data = values;
+        hourlyChart.data.labels = entries.map((e) => (e.key.includes("_") ? e.key.split("_")[1] : e.key));
+        hourlyChart.data.datasets[0].data = entries.map((e) => e.kwh);
         hourlyChart.update();
       });
+
+      // --- Calendar Logic with STEG Price Calculation ---
+      let currentCalDate = new Date();
+      let dailyDataMap = {};
+
+      async function loadCalendarData() {
+        const snapshot = await get(ref(db, "hourly_logs"));
+        if (snapshot.exists()) {
+          const logs = snapshot.val();
+          dailyDataMap = {};
+
+          Object.keys(logs).forEach((key) => {
+            const dateStr = key.split("_")[0];
+            const kwh = logs[key].kwh_consumed || 0;
+
+            if (dateStr) {
+              if (!dailyDataMap[dateStr]) {
+                dailyDataMap[dateStr] = { kwh: 0, cost: 0 };
+              }
+              dailyDataMap[dateStr].kwh += kwh;
+            }
+          });
+
+          Object.keys(dailyDataMap).forEach((dateStr) => {
+            dailyDataMap[dateStr].cost = dailyDataMap[dateStr].kwh * STEG_RATE;
+          });
+
+          renderCalendar();
+        }
+      }
+
+      function renderCalendar() {
+        const grid = document.getElementById("calendarGrid");
+        grid.innerHTML = "";
+
+        const year = currentCalDate.getFullYear();
+        const month = currentCalDate.getMonth();
+
+        document.getElementById("calendarMonthYear").innerText = new Date(year, month).toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        });
+
+        const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        days.forEach((d) => {
+          const head = document.createElement("div");
+          head.className = "day-head";
+          head.innerText = d;
+          grid.appendChild(head);
+        });
+
+        const firstDayIdx = new Date(year, month, 1).getDay();
+        const totalDays = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 0; i < firstDayIdx; i++) {
+          grid.appendChild(document.createElement("div"));
+        }
+
+        for (let day = 1; day <= totalDays; day++) {
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const cell = document.createElement("div");
+          cell.className = "day-cell";
+
+          const dayNum = document.createElement("div");
+          dayNum.className = "day-num";
+          dayNum.innerText = day;
+          cell.appendChild(dayNum);
+
+          if (dailyDataMap[dateStr]) {
+            cell.classList.add("available");
+
+            const info = document.createElement("div");
+            info.className = "day-info";
+
+            const kwhSpan = document.createElement("span");
+            kwhSpan.className = "kwh-val";
+            kwhSpan.innerText = `${dailyDataMap[dateStr].kwh.toFixed(2)} kWh`;
+
+            const costSpan = document.createElement("span");
+            costSpan.className = "cost-val";
+            costSpan.innerText = `${dailyDataMap[dateStr].cost.toFixed(3)} TDN`;
+
+            info.appendChild(kwhSpan);
+            info.appendChild(costSpan);
+            cell.appendChild(info);
+
+            // Redirect to history.html for selected date
+            cell.onclick = () => {
+              window.location.href = `history.html?date=${dateStr}`;
+            };
+          } else {
+            cell.classList.add("disabled");
+          }
+
+          grid.appendChild(cell);
+        }
+      }
+
+      document.getElementById("prevMonth").onclick = () => {
+        currentCalDate.setMonth(currentCalDate.getMonth() - 1);
+        renderCalendar();
+      };
+
+      document.getElementById("nextMonth").onclick = () => {
+        currentCalDate.setMonth(currentCalDate.getMonth() + 1);
+        renderCalendar();
+      };
+
+      loadCalendarData();
     </script>
   </body>
 </html>
