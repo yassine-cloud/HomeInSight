@@ -21,6 +21,7 @@
         --accent-blue: #3498db;
         --accent-green: #2ecc71;
         --accent-orange: #e67e22;
+        --accent-red: #e74c3c;
         --border-radius: 12px;
       }
 
@@ -37,19 +38,62 @@
         margin: 0 auto;
         display: flex;
         flex-direction: column;
-        gap: 25px;
+        gap: 20px;
+      }
+
+      /* Scheduled Reset Alert Banner */
+      .reset-alert-banner {
+        background-color: #fadbd8;
+        border: 2px solid var(--accent-red);
+        color: #78281f;
+        padding: 14px 20px;
+        border-radius: var(--border-radius);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+      }
+
+      .reset-alert-banner .alert-btn {
+        background-color: var(--accent-red);
+        color: white;
+        text-decoration: none;
+        padding: 8px 14px;
+        border-radius: 6px;
+        font-weight: bold;
+        font-size: 13px;
+        transition: background 0.2s ease;
+      }
+
+      .reset-alert-banner .alert-btn:hover {
+        background-color: #c0392b;
       }
 
       .header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 5px;
       }
 
       .header h1 {
         margin: 0;
         font-size: 28px;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 10px;
       }
 
       .nav-btn {
@@ -61,10 +105,22 @@
         font-weight: 600;
         font-size: 14px;
         transition: background 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
       }
 
       .nav-btn:hover {
         background-color: #2980b9;
+      }
+
+      .nav-btn.local-btn {
+        background-color: #27ae60;
+        display: none; /* Hidden initially; revealed on page load if local connection succeeds */
+      }
+
+      .nav-btn.local-btn:hover {
+        background-color: #219150;
       }
 
       /* Live Chart Card */
@@ -157,6 +213,8 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
         margin-bottom: 20px;
       }
 
@@ -280,7 +338,22 @@
       <!-- Header -->
       <div class="header">
         <h1><i class="fas fa-plug" style="color: #e74c3c"></i> ESP32 Cloud Dashboard</h1>
-        <a href="history.html" class="nav-btn"><i class="fas fa-chart-bar"></i> Full History View</a>
+        <div class="header-actions">
+          <!-- Local device button (shown only if device is reachable on page load) -->
+          <a href="http://192.168.1.150" target="_blank" id="localDeviceBtn" class="nav-btn local-btn">
+            <i class="fas fa-wifi"></i> Local Device (192.168.1.150)
+          </a>
+          <a href="history.html" class="nav-btn"><i class="fas fa-chart-bar"></i> Full History View</a>
+        </div>
+      </div>
+
+      <!-- Pending Reset Warning Alert Banner -->
+      <div id="resetAlertBanner" class="reset-alert-banner" style="display: none;">
+        <div>
+          <i class="fas fa-exclamation-triangle" style="font-size: 18px; margin-right: 8px;"></i>
+          <strong>WARNING:</strong> Total accumulated energy is scheduled to be reset at the end of this hour!
+        </div>
+        <a href="http://192.168.1.150" target="_blank" class="alert-btn"><i class="fas fa-stop-circle"></i> Connect to Local Device to Cancel</a>
       </div>
 
       <!-- 24-Hour Realtime Consumption Line Chart -->
@@ -359,7 +432,7 @@
         </div>
       </div>
 
-      <!-- Bottom Calendar View: Daily Totals & STEG Costs -->
+      <!-- Bottom Calendar Section -->
       <div class="calendar-section">
         <div class="calendar-section-header">
           <h2><i class="fas fa-calendar-alt" style="color: var(--accent-blue)"></i> Daily Consumption Calendar</h2>
@@ -376,19 +449,45 @@
       </div>
     </div>
 
-    <!-- Firebase SDK Setup -->
+    <!-- Connection Check & Firebase Setup -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
       import {
         getDatabase,
         ref,
         onValue,
-        get,
         query,
         limitToLast
       } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-      const STEG_RATE = 0.218; // 218 millimes = 0.218 TDN per kWh
+      // --- One-time Connection Check on Page Load ---
+      const LOCAL_IP = "http://192.168.1.150";
+
+      async function checkLocalConnectionOnLoad() {
+        const localBtn = document.getElementById("localDeviceBtn");
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        try {
+          await fetch(LOCAL_IP, {
+            method: "GET",
+            mode: "no-cors",
+            cache: "no-store",
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          localBtn.style.display = "inline-flex"; // Connection active: show button
+        } catch (err) {
+          clearTimeout(timeoutId);
+          localBtn.style.display = "none"; // Connection failed or unreachable: keep hidden
+        }
+      }
+
+      // Execute strictly once when the page loads
+      checkLocalConnectionOnLoad();
+
+      // --- Firebase Setup ---
+      const STEG_RATE = 0.218;
 
       const firebaseConfig = {
         apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -402,6 +501,9 @@
 
       const app = initializeApp(firebaseConfig);
       const db = getDatabase(app);
+
+      const formatNum = (val, decimals = 2) =>
+        typeof val === "number" && !isNaN(val) ? val.toFixed(decimals) : (val ?? "--");
 
       // --- Chart 1: Live 24-Hour Line Chart ---
       const ctx = document.getElementById("hourlyChart").getContext("2d");
@@ -436,13 +538,20 @@
         const data = snapshot.val();
         if (!data) return;
 
-        document.getElementById("voltage").innerText = data.voltage !== undefined ? data.voltage : "--";
-        document.getElementById("current").innerText = data.current !== undefined ? data.current : "--";
-        document.getElementById("power").innerText = data.power !== undefined ? data.power : "--";
-        document.getElementById("energy").innerText = data.energy !== undefined ? data.energy : "--";
-        document.getElementById("predicted_hour").innerText = data.predicted_hour_energy !== undefined ? data.predicted_hour_energy : "--";
-        document.getElementById("frequency").innerText = data.frequency !== undefined ? data.frequency : "--";
-        document.getElementById("pf").innerText = data.power_factor !== undefined ? data.power_factor : "--";
+        document.getElementById("voltage").innerText = formatNum(data.voltage, 1);
+        document.getElementById("current").innerText = formatNum(data.current, 3);
+        document.getElementById("power").innerText = formatNum(data.power, 1);
+        document.getElementById("energy").innerText = formatNum(data.energy, 3);
+        document.getElementById("predicted_hour").innerText = formatNum(data.predicted_hour_energy, 3);
+        document.getElementById("frequency").innerText = formatNum(data.frequency, 1);
+        document.getElementById("pf").innerText = formatNum(data.power_factor, 2);
+
+        const alertBanner = document.getElementById("resetAlertBanner");
+        if (data.pending_reset === true) {
+          alertBanner.style.display = "flex";
+        } else {
+          alertBanner.style.display = "none";
+        }
 
         if (data.timestamp) {
           const localDate = new Date(data.timestamp * 1000);
@@ -468,23 +577,30 @@
 
         const entries = Object.keys(data).map((key) => {
           const item = data[key];
-          let timestampMs = item.timestamp ? item.timestamp * 1000 : new Date(key.replace("_", "T")).getTime();
+          let timestampMs;
+          if (item.timestamp) {
+            timestampMs = item.timestamp * 1000;
+          } else {
+            const parts = key.split("_");
+            timestampMs = new Date(`${parts[0]}T${parts[1] || "00"}:00:00`).getTime();
+          }
           return { key, kwh: item.kwh_consumed || 0, timestampMs };
         });
 
         entries.sort((a, b) => a.timestampMs - b.timestampMs);
 
-        hourlyChart.data.labels = entries.map((e) => (e.key.includes("_") ? e.key.split("_")[1] : e.key));
+        hourlyChart.data.labels = entries.map((e) =>
+          e.key.includes("_") ? e.key.split("_")[1] + ":00" : e.key
+        );
         hourlyChart.data.datasets[0].data = entries.map((e) => e.kwh);
         hourlyChart.update();
       });
 
-      // --- Calendar Logic with STEG Price Calculation ---
+      // --- Realtime Calendar Logic ---
       let currentCalDate = new Date();
       let dailyDataMap = {};
 
-      async function loadCalendarData() {
-        const snapshot = await get(ref(db, "hourly_logs"));
+      onValue(ref(db, "hourly_logs"), (snapshot) => {
         if (snapshot.exists()) {
           const logs = snapshot.val();
           dailyDataMap = {};
@@ -507,7 +623,7 @@
 
           renderCalendar();
         }
-      }
+      });
 
       function renderCalendar() {
         const grid = document.getElementById("calendarGrid");
@@ -516,7 +632,10 @@
         const year = currentCalDate.getFullYear();
         const month = currentCalDate.getMonth();
 
-        document.getElementById("calendarMonthYear").innerText = new Date(year, month).toLocaleDateString("en-US", {
+        document.getElementById("calendarMonthYear").innerText = new Date(
+          year,
+          month
+        ).toLocaleDateString("en-US", {
           month: "long",
           year: "numeric",
         });
@@ -537,7 +656,9 @@
         }
 
         for (let day = 1; day <= totalDays; day++) {
-          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+            day
+          ).padStart(2, "0")}`;
           const cell = document.createElement("div");
           cell.className = "day-cell";
 
@@ -564,7 +685,6 @@
             info.appendChild(costSpan);
             cell.appendChild(info);
 
-            // Redirect to history.html for selected date
             cell.onclick = () => {
               window.location.href = `history.html?date=${dateStr}`;
             };
@@ -585,8 +705,6 @@
         currentCalDate.setMonth(currentCalDate.getMonth() + 1);
         renderCalendar();
       };
-
-      loadCalendarData();
     </script>
   </body>
 </html>
