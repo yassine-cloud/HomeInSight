@@ -1,5 +1,10 @@
 #include "EnergyAnalytics.h"
 
+void EnergyAnalytics::resetBaseline(float newEnergy)
+{
+    hourStartEnergy = newEnergy;
+}
+
 AnalyticsResult EnergyAnalytics::update(float currentEnergy, float currentPower, const struct tm &timeinfo)
 {
     AnalyticsResult result;

@@ -15,4 +15,8 @@
 const uint32_t  FIREBASE_LIVE_INTERVAL = 60; // 60 seconds update interval
 const uint32_t  SENSOR_READ_INTERVAL = 2000; // 2 seconds update interval
 const uint32_t  DELAY_LOOP_INTERVAL = 500; // 500ms delay loop interval
+
+// --- ENERGY COUNTER RESET CONFIGURATION ---
+const uint8_t DAILY_RESET_HOUR   = 4; // Reset hour (04:00 AM)
+const uint8_t DAILY_RESET_MINUTE = 0; // Reset minute (do not change this value, it is always 0)
 #endif

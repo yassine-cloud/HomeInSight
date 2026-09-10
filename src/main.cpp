@@ -69,6 +69,7 @@ void setup()
 void loop()
 {
     static unsigned long lastSecTick = 0;
+    static int lastResetDay = -1; // Tracks calendar day to execute reset strictly once daily
 
     // Execute sensor read & analytics processing once every update cycle (2 seconds)
     if (millis() - lastSecTick >= SENSOR_READ_INTERVAL)
@@ -86,17 +87,42 @@ void loop()
 
             if (currentAnalytics.hourRolloverOccurred)
             {
-                Serial.println("[ANALYTICS] Top of the hour! Logging hourly data to Firebase...");
+                // Serial.println("[ANALYTICS] Top of the hour! Logging hourly data to Firebase...");
                 firebaseService.sendHourlyLog(currentAnalytics.hourlyLogKey,
                                               currentAnalytics.lastHourEnergy,
                                               currentPowerData.voltage,
                                               currentPowerData.current,
                                               currentPowerData.power);
             }
+
+            // 3. Automated Daily Energy Counter Reset at 04:00 AM (configured in config.h)
+            if (timeinfo.tm_hour == DAILY_RESET_HOUR && timeinfo.tm_min == DAILY_RESET_MINUTE)
+            {
+                if (lastResetDay != timeinfo.tm_mday)
+                {
+                    lastResetDay = timeinfo.tm_mday;
+                    // Serial.println("[SCHEDULE] Executing 04:00 AM daily energy counter reset...");
+
+                    if (powerSensor.resetEnergy())
+                    {
+                        // Serial.println("[SCHEDULE] PZEM hardware energy meter reset successful.");
+                    }
+                    else
+                    {
+                        // Serial.println("[SCHEDULE] PZEM hardware reset failed or not responding.");
+                    }
+
+                    // Re-read sensor metrics so local variables reflect zero energy
+                    currentPowerData = powerSensor.readData();
+
+                    // Adjust analytics baseline to 0.0 kWh for current hour calculation
+                    analytics.resetBaseline(currentPowerData.energy);
+                }
+            }
         }
     }
 
-    // 3. Telemetry clock boundary check (runs every DELAY_LOOP_INTERVAL ms to catch top-of-minute instantly)
+    // 4. Telemetry clock boundary check (runs every DELAY_LOOP_INTERVAL ms to catch top-of-minute instantly)
     if (firebaseService.isReadyForLiveUpdate(FIREBASE_LIVE_INTERVAL))
     {
         Serial.println("[FIREBASE] Sending live telemetry update...");

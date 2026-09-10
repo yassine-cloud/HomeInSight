@@ -21,6 +21,7 @@ public:
     PowerSensor(uint8_t rxPin, uint8_t txPin);
     void begin();
     PowerData readData();
+    bool resetEnergy(); // Send reset command to hardware meter
 
 private:
     PZEM004Tv30 pzem;
