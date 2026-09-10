@@ -15,4 +15,10 @@
 const uint32_t  FIREBASE_LIVE_INTERVAL = 60; // 60 seconds update interval
 const uint32_t  SENSOR_READ_INTERVAL = 2000; // 2 seconds update interval
 const uint32_t  DELAY_LOOP_INTERVAL = 500; // 500ms delay loop interval
+
+// --- ENERGY COUNTER RESET CONFIGURATION ---
+const uint8_t ENERGY_RESET_HOUR   = 4; // Reset hour (04:00 AM)
+
+// --- GEOLOCATION RETRY CONFIGURATION ---
+const uint32_t GEO_RETRY_INTERVAL = 10000;  // Retry every 10 seconds if geolocation fetch fails
 #endif

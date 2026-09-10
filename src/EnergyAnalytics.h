@@ -17,6 +17,7 @@ class EnergyAnalytics
 {
 public:
     AnalyticsResult update(float currentEnergy, float currentPower, const struct tm &timeinfo);
+    void resetBaseline(float newEnergy); // Recalibrates hourly baseline after meter reset
 
 private:
     bool firstFullHourStarted = false;

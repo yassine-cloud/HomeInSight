@@ -19,3 +19,8 @@ PowerData PowerSensor::readData()
     data.pf = pzem.pf();
     return data;
 }
+
+bool PowerSensor::resetEnergy()
+{
+    return pzem.resetEnergy();
+}

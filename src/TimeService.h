@@ -17,9 +17,11 @@ public:
     void syncLocationAndTime();
     String getFormattedTime();
     String getDetectedLocation() const { return detectedLocation; }
+    bool isLocationFetched() const { return locationFetched; } // Added getter
 
 private:
     String detectedLocation = "Detecting...";
+    bool locationFetched = false; // Added flag
     const char *ntpServer = "pool.ntp.org";
     const char *fallbackTZ = "CET-1";
 };
