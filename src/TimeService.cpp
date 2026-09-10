@@ -29,6 +29,12 @@ void TimeService::connectWiFi(const char *ssid, const char *password,
 
 void TimeService::syncLocationAndTime()
 {
+    // Do not run if we already successfully cached the location
+    if (locationFetched)
+    {
+        return;
+    }
+
     if (WiFi.status() == WL_CONNECTED)
     {
         Serial.println("[GEO] Contacting ipwho.is for location & timezone...");
@@ -61,6 +67,7 @@ void TimeService::syncLocationAndTime()
                 detectedLocation = String(city) + ", " + String(country);
                 configTime(utcOffset, 0, ntpServer);
                 syncSuccess = true;
+                locationFetched = true; // Permanent cache lock
                 Serial.printf("[GEO] Success! Location: %s (UTC Offset: %ld s)\n", detectedLocation.c_str(), utcOffset);
             }
             else
@@ -72,7 +79,10 @@ void TimeService::syncLocationAndTime()
         if (!syncSuccess)
         {
             Serial.println("[GEO] API lookup failed. Falling back to default timezone (CET-1).");
-            detectedLocation = "Offline (Default TZ)";
+            if (!locationFetched)
+            {
+                detectedLocation = "Offline (Default TZ)";
+            }
             configTzTime(fallbackTZ, ntpServer);
         }
         http.end();

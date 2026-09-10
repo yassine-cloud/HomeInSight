@@ -75,7 +75,15 @@ void setup()
 void loop()
 {
     static unsigned long lastSecTick = 0;
+    static unsigned long lastGeoRetry = 0;
     static int lastResetDay = -1; 
+
+    // Non-blocking retry if bootup location fetch failed initially
+    if (!timeService.isLocationFetched() && millis() - lastGeoRetry >= GEO_RETRY_INTERVAL)
+    {
+        lastGeoRetry = millis();
+        timeService.syncLocationAndTime();
+    }
 
     // Execute sensor read & analytics processing once every update cycle (2 seconds)
     if (millis() - lastSecTick >= SENSOR_READ_INTERVAL)
