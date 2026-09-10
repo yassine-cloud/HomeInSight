@@ -547,7 +547,7 @@
         document.getElementById("pf").innerText = formatNum(data.power_factor, 2);
 
         const alertBanner = document.getElementById("resetAlertBanner");
-        if (data.pending_reset === true) {
+        if (data.pendingReset === true) {
           alertBanner.style.display = "flex";
         } else {
           alertBanner.style.display = "none";
