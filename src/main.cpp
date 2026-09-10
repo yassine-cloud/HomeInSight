@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <esp_pm.h>
 #include <esp_bt.h>
+#include <atomic>
 #include "secrets.h"
 #include "config.h"
 #include "PowerSensor.h"
@@ -20,10 +21,11 @@ EnergyAnalytics analytics;
 FirebaseService firebaseService;
 WebServerManager webServer(80);
 
-// Global Application State Data
+// Global Application State Data & Concurrency Guard
 PowerData currentPowerData;
 AnalyticsResult currentAnalytics;
-bool pendingReset = false; // Local state flag for deferred next-hour reset
+std::atomic<bool> pendingReset{false}; 
+SemaphoreHandle_t dataMutex = NULL;
 
 void setup()
 {
@@ -38,6 +40,9 @@ void setup()
     Serial.println("\n=================================");
     Serial.println("  ESP32 POWER MONITOR STARTING   ");
     Serial.println("=================================");
+
+    // Initialize state mutex
+    dataMutex = xSemaphoreCreateMutex();
 
     // Initialize PZEM Sensor UART
     powerSensor.begin();
@@ -63,14 +68,14 @@ void setup()
     Serial.println("[FIREBASE] Initialized.");
 
     // Start Asynchronous Web Server
-    webServer.begin(currentPowerData, currentAnalytics, timeService, pendingReset);
+    webServer.begin(currentPowerData, currentAnalytics, timeService, pendingReset, dataMutex);
     Serial.println("[HTTP] Web server running on port 80");
 }
 
 void loop()
 {
     static unsigned long lastSecTick = 0;
-    static int lastResetDay = -1; // Tracks calendar day to execute reset strictly once daily
+    static int lastResetDay = -1; 
 
     // Execute sensor read & analytics processing once every update cycle (2 seconds)
     if (millis() - lastSecTick >= SENSOR_READ_INTERVAL)
@@ -78,30 +83,34 @@ void loop()
         lastSecTick = millis();
 
         // 1. Fetch fresh hardware readings
-        currentPowerData = powerSensor.readData();
-        currentPowerData.pendingReset = pendingReset; // Sync flag state for telemetry
+        PowerData freshPower = powerSensor.readData();
+        freshPower.pendingReset = pendingReset.load();
 
-        // 2. Process analytics with newly updated sensor metrics
         struct tm timeinfo;
         if (getLocalTime(&timeinfo))
         {
-            currentAnalytics = analytics.update(currentPowerData.energy, currentPowerData.power, timeinfo);
+            AnalyticsResult freshAnalytics = analytics.update(freshPower.energy, freshPower.power, timeinfo);
 
-            if (currentAnalytics.hourRolloverOccurred)
+            // Mutex-protected lock for main state update
+            if (dataMutex && xSemaphoreTake(dataMutex, pdMS_TO_TICKS(100)) == pdTRUE)
             {
-                // Serial.println("[ANALYTICS] Top of the hour! Logging hourly data to Firebase...");
-                firebaseService.sendHourlyLog(currentAnalytics.hourlyLogKey,
-                                              currentAnalytics.lastHourEnergy,
-                                              currentPowerData.voltage,
-                                              currentPowerData.current,
-                                              currentPowerData.power);
+                currentPowerData = freshPower;
+                currentAnalytics = freshAnalytics;
+                xSemaphoreGive(dataMutex);
+            }
 
-                // Check deferred reset flag or 04:00 AM daily schedule
+            if (freshAnalytics.hourRolloverOccurred)
+            {
+                firebaseService.sendHourlyLog(freshAnalytics.hourlyLogKey,
+                                              freshAnalytics.lastHourEnergy,
+                                              freshPower.voltage,
+                                              freshPower.current,
+                                              freshPower.power);
+
                 bool isScheduled4AM = (timeinfo.tm_hour == ENERGY_RESET_HOUR && lastResetDay != timeinfo.tm_mday);
 
-                if (pendingReset || isScheduled4AM)
+                if (pendingReset.load() || isScheduled4AM)
                 {
-                    // Serial.println("[SCHEDULE] Executing energy meter reset...");
                     if (powerSensor.resetEnergy())
                     {
                         Serial.println("[SCHEDULE] PZEM hardware energy meter reset successful.");
@@ -112,27 +121,49 @@ void loop()
                         lastResetDay = timeinfo.tm_mday;
                     }
 
+                    // Delay 200ms to allow PZEM hardware registers to finalize clearing
+                    delay(200);
+
                     // Re-read sensor metrics & reset analytics baseline
-                    currentPowerData = powerSensor.readData();
-                    analytics.resetBaseline(currentPowerData.energy);
+                    freshPower = powerSensor.readData();
+                    analytics.resetBaseline(freshPower.energy);
 
-                    pendingReset = false;
-                    currentPowerData.pendingReset = false;
+                    pendingReset.store(false);
+                    freshPower.pendingReset = false;
 
-                    // Push immediate telemetry update to Firebase
-                    firebaseService.sendLiveTelemetry(currentPowerData);
+                    // Sync predicted energy before pushing top-of-hour telemetry
+                    freshPower.predictedHourEnergy = freshAnalytics.predictedHourEnergy;
+
+                    if (dataMutex && xSemaphoreTake(dataMutex, pdMS_TO_TICKS(100)) == pdTRUE)
+                    {
+                        currentPowerData = freshPower;
+                        xSemaphoreGive(dataMutex);
+                    }
+
+                    firebaseService.sendLiveTelemetry(freshPower);
                 }
             }
         }
     }
 
-    // 4. Telemetry clock boundary check (runs every DELAY_LOOP_INTERVAL ms to catch top-of-minute instantly)
+    // Telemetry clock boundary check
     if (firebaseService.isReadyForLiveUpdate(FIREBASE_LIVE_INTERVAL))
     {
         Serial.println("[FIREBASE] Sending live telemetry update...");
-        currentPowerData.predictedHourEnergy = currentAnalytics.predictedHourEnergy;
-        firebaseService.sendLiveTelemetry(currentPowerData);
+        PowerData telemetryCopy;
+        if (dataMutex && xSemaphoreTake(dataMutex, pdMS_TO_TICKS(100)) == pdTRUE)
+        {
+            currentPowerData.predictedHourEnergy = currentAnalytics.predictedHourEnergy;
+            telemetryCopy = currentPowerData;
+            xSemaphoreGive(dataMutex);
+        }
+        else
+        {
+            telemetryCopy = currentPowerData;
+            telemetryCopy.predictedHourEnergy = currentAnalytics.predictedHourEnergy;
+        }
+        firebaseService.sendLiveTelemetry(telemetryCopy);
     }
 
-    delay(DELAY_LOOP_INTERVAL); // FreeRTOS yield window
+    delay(DELAY_LOOP_INTERVAL); 
 }
