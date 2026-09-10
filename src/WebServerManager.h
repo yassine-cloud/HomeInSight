@@ -12,10 +12,11 @@ class WebServerManager
 {
 public:
     WebServerManager(uint16_t port);
-    void begin(const PowerData &powerData, const AnalyticsResult &analytics, TimeService &timeService);
+    void begin(const PowerData &powerData, const AnalyticsResult &analytics, TimeService &timeService, bool &pendingResetFlag);
 
 private:
     AsyncWebServer server;
+    bool *pendingResetPtr = nullptr;
 };
 
 #endif

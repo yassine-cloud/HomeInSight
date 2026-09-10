@@ -13,6 +13,7 @@ struct PowerData
     float frequency = 0.0;
     float pf = 0.0;
     float predictedHourEnergy = 0.0;
+    bool pendingReset = false;        // Flag indicating energy reset is scheduled for top-of-hour
 };
 
 class PowerSensor

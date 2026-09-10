@@ -23,6 +23,7 @@ WebServerManager webServer(80);
 // Global Application State Data
 PowerData currentPowerData;
 AnalyticsResult currentAnalytics;
+bool pendingReset = false; // Local state flag for deferred next-hour reset
 
 void setup()
 {
@@ -62,7 +63,7 @@ void setup()
     Serial.println("[FIREBASE] Initialized.");
 
     // Start Asynchronous Web Server
-    webServer.begin(currentPowerData, currentAnalytics, timeService);
+    webServer.begin(currentPowerData, currentAnalytics, timeService, pendingReset);
     Serial.println("[HTTP] Web server running on port 80");
 }
 
@@ -78,6 +79,7 @@ void loop()
 
         // 1. Fetch fresh hardware readings
         currentPowerData = powerSensor.readData();
+        currentPowerData.pendingReset = pendingReset; // Sync flag state for telemetry
 
         // 2. Process analytics with newly updated sensor metrics
         struct tm timeinfo;
@@ -93,30 +95,32 @@ void loop()
                                               currentPowerData.voltage,
                                               currentPowerData.current,
                                               currentPowerData.power);
-            }
 
-            // 3. Automated Daily Energy Counter Reset at 04:00 AM (configured in config.h)
-            if (timeinfo.tm_hour == DAILY_RESET_HOUR && timeinfo.tm_min == DAILY_RESET_MINUTE)
-            {
-                if (lastResetDay != timeinfo.tm_mday)
+                // Check deferred reset flag or 04:00 AM daily schedule
+                bool isScheduled4AM = (timeinfo.tm_hour == ENERGY_RESET_HOUR && lastResetDay != timeinfo.tm_mday);
+
+                if (pendingReset || isScheduled4AM)
                 {
-                    lastResetDay = timeinfo.tm_mday;
-                    // Serial.println("[SCHEDULE] Executing 04:00 AM daily energy counter reset...");
-
+                    // Serial.println("[SCHEDULE] Executing energy meter reset...");
                     if (powerSensor.resetEnergy())
                     {
-                        // Serial.println("[SCHEDULE] PZEM hardware energy meter reset successful.");
+                        Serial.println("[SCHEDULE] PZEM hardware energy meter reset successful.");
                     }
-                    else
+
+                    if (isScheduled4AM)
                     {
-                        // Serial.println("[SCHEDULE] PZEM hardware reset failed or not responding.");
+                        lastResetDay = timeinfo.tm_mday;
                     }
 
-                    // Re-read sensor metrics so local variables reflect zero energy
+                    // Re-read sensor metrics & reset analytics baseline
                     currentPowerData = powerSensor.readData();
-
-                    // Adjust analytics baseline to 0.0 kWh for current hour calculation
                     analytics.resetBaseline(currentPowerData.energy);
+
+                    pendingReset = false;
+                    currentPowerData.pendingReset = false;
+
+                    // Push immediate telemetry update to Firebase
+                    firebaseService.sendLiveTelemetry(currentPowerData);
                 }
             }
         }

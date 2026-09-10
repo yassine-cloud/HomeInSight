@@ -57,6 +57,7 @@ void FirebaseService::sendLiveTelemetry(const PowerData &data)
     json.set("frequency", roundTo(data.frequency, 1));
     json.set("power_factor", roundTo(data.pf, 2));
     json.set("predicted_hour_energy", roundTo(data.predictedHourEnergy, 3));
+    json.set("pendingReset", data.pendingReset); // Pushed to Firebase live telemetry
     json.set("timestamp", (unsigned long)now);
 
     Firebase.RTDB.setJSON(&fbdo, "/live_telemetry", &json);
