@@ -589,9 +589,14 @@
 
         entries.sort((a, b) => a.timestampMs - b.timestampMs);
 
-        hourlyChart.data.labels = entries.map((e) =>
-          e.key.includes("_") ? e.key.split("_")[1] + ":00" : e.key
-        );
+        hourlyChart.data.labels = entries.map((e) =>{
+          if (e.key.includes("_")) {
+            const startHour = parseInt(e.key.split("_")[1], 10);
+            const endHour = (startHour + 1) % 24; // Shifts hour 08 -> 09, and hour 23 -> 00
+            return String(endHour).padStart(2, "0") + ":00";
+          }
+          return e.key;
+        });
         hourlyChart.data.datasets[0].data = entries.map((e) => e.kwh);
         hourlyChart.update();
       });
